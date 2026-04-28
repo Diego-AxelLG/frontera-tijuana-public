@@ -1,0 +1,33 @@
+[project]
+name = "frontera-tijuana"
+version = "1.0.0"
+description = "Pipeline ETL para el dashboard analítico Frontera Tijuana–San Diego (BTS, TransBorder, SANDAG)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Diego Axel López"}
+]
+dependencies = [
+    "pandas>=2.0",
+    "psycopg2-binary>=2.9",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "tqdm>=4.66",
+    "chardet>=5.2",
+    "python-dotenv>=1.0",
+    "pyarrow>=14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipython>=8.0",
+    "jupyterlab>=4.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []

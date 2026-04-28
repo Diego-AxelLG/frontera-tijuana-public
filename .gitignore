@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# Environment
+.env
+.env.local
+
+# Data (no committed; reproducible from sources via scripts/02-04)
+data_raw/
+data_samples/
+out/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Reports / artifacts (no committed in showcase)
+reports/

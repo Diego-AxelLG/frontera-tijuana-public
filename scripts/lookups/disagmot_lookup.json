@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "source": "https://www.bts.gov/sites/bts.dot.gov/files/docs/browse-statistical-products-and-data/transborder-freight-data/220171/all-codes-north-american-transborder-freight-raw-data.pdf",
+    "verified_against_data": "Cross-check Otay Mar 2024 Truck Import = $2,964,387,972 (DISAGMOT 5)",
+    "note_disagmot_2": "Código '2' NO existe en docs oficiales BTS pero aparece en 186 filas del dataset crudo. Se mantiene como fallback bucket 'Rail (DISAGMOT 2 - investigación pendiente)' para no perder filas. Probablemente filing errors o legacy encoding.",
+    "updated": "2026-04-26"
+  },
+  "1": "Vessel",
+  "3": "Air",
+  "4": "Mail",
+  "5": "Truck",
+  "6": "Rail",
+  "7": "Pipeline",
+  "8": "Other",
+  "9": "Foreign Trade Zone"
+}
