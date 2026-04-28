@@ -4,9 +4,9 @@
 
 | Capa | Componente |
 |---|---|
-| Storage | Postgres 17 local (host accesible vía Tailscale `100.123.166.123:5432`) |
+| Storage | Postgres 15+ accesible vía red |
 | Schema | Schema dedicado `frontera` en DB `frontera_tijuana` |
-| ETL | Python 3.14 con `pandas`, `psycopg2-binary`, `requests`, `beautifulsoup4`, `tqdm` |
+| ETL | Python 3.10+ con `pandas`, `psycopg2-binary`, `requests`, `beautifulsoup4`, `chardet`, `tqdm` |
 | Sources | Archivos planos BTS (vía Wayback por geo-block); SANDAG SODA API; data.transportation.gov |
 
 ## Modelo dimensional
@@ -45,17 +45,18 @@ dim_port  dim_mode   dim_   dim_  dim_         dim_port  dim_lane_
 ## Flujo del pipeline
 
 ```
-1. Carga inicial de dimensiones      → etl/01_load_dimensions.py
-2. Bajar 108 ZIPs vía Wayback        → etl/02_download_national.py (+ 03_retry)
-3. Extraer dot3 CSVs por mes         → etl/04_extract_national_zips.py
-4. ETL fact_transborder              → etl/05_load_fact_transborder.py
+1. Carga inicial de dimensiones      → scripts/01_load_dimensions.py
+2. Bajar 108 ZIPs vía Wayback        → scripts/02_download_national.py (+ 03_retry)
+3. Extraer dot3 CSVs por mes         → scripts/04_extract_national_zips.py
+4. ETL fact_transborder              → scripts/05_load_fact_transborder.py
    - Parte 1: 88 ZIPs nacionales
    - Parte 2: SANDAG adapter (Dec 2024 + Q1 2025)
-5. ETL fact_border_crossing          → etl/06_load_fact_border_crossing.py
-6. ETL fact_wait_time                → etl/07_load_fact_wait_time.py
+5. ETL fact_border_crossing          → scripts/06_load_fact_border_crossing.py
+6. ETL fact_wait_time                → scripts/07_load_fact_wait_time.py
+7. Pre-bake JSONs para frontend      → scripts/08_prebake_frontend.py (env: PREBAKE_OUT_DIR)
 ```
 
-Cada script es **idempotente** — re-ejecutar con `python etl/<script>.py` produce el mismo estado. Las facts hacen `TRUNCATE` antes del `COPY`. Las dimensiones usan `ON CONFLICT DO NOTHING` o `TRUNCATE ... RESTART IDENTITY CASCADE`.
+Cada script es **idempotente** — re-ejecutar con `python scripts/<script>.py` produce el mismo estado. Las facts hacen `TRUNCATE` antes del `COPY`. Las dimensiones usan `ON CONFLICT DO NOTHING` o `TRUNCATE ... RESTART IDENTITY CASCADE`.
 
 ## Convenciones
 
@@ -74,7 +75,7 @@ Cada script es **idempotente** — re-ejecutar con `python etl/<script>.py` prod
 
 ### Prerequisites
 
-- Python 3.13+
+- Python 3.10+
 - Postgres 15+ accesible (la DB `frontera_tijuana` puede no existir aún)
 - Conexión a internet (Wayback Machine + SANDAG SODA API)
 - Acceso desde IP **NO geo-bloqueada por Akamai en bts.gov** — alternativa: usar Wayback (lo que hace el pipeline)
@@ -82,11 +83,11 @@ Cada script es **idempotente** — re-ejecutar con `python etl/<script>.py` prod
 ### Setup
 
 ```bash
-git clone <repo>
-cd frontera-tijuana
+git clone https://github.com/Diego-AxelLG/frontera-tijuana-public.git
+cd frontera-tijuana-public
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 cp .env.example .env  # editar con credenciales reales (PG_HOST, PG_USER, PG_PASSWORD)
 ```
 
@@ -99,16 +100,17 @@ PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -U "$PG_USER" -d postgres \
 
 # Aplicar schema
 PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -U "$PG_USER" -d frontera_tijuana \
-  -f schema/01_schema.sql
+  -f sql/schema/dimensions.sql \
+  -f sql/schema/facts.sql
 ```
 
 ### Cargar dimensiones
 
 ```bash
-python etl/01_load_dimensions.py
+python scripts/01_load_dimensions.py
 ```
 
-Esto puebla las 5 dimensiones (~11.3k filas dim_date + 27 ports + 14 modes + 97 commodities + 6 lanes).
+Esto puebla las 5 dimensiones (11,073 filas dim_date + 94 ports + 15 modes + 97 commodities + 6 lanes).
 
 **Nota**: necesita `data_samples/border_crossing_full.csv` (ignorado por git, regenerable):
 
@@ -121,9 +123,9 @@ curl -sL -o data_samples/border_crossing_full.csv \
 ### Bajar TransBorder nacional (~30-40 min)
 
 ```bash
-python etl/02_download_national.py        # discovery + descarga vía Wayback
-python etl/03_retry_downloads.py          # retry agresivo (recupera ~25 falsos negativos)
-python etl/04_extract_national_zips.py    # extrae dot3 CSVs por mes
+python scripts/02_download_national.py        # discovery + descarga vía Wayback
+python scripts/03_retry_downloads.py          # retry agresivo (recupera ~25 falsos negativos)
+python scripts/04_extract_national_zips.py    # extrae dot3 CSVs por mes
 ```
 
 Resultado: ~98 ZIPs en `data_raw/transborder_national/` (~3 GB) + 178 dot3 CSVs en `extracted/`.
@@ -131,10 +133,18 @@ Resultado: ~98 ZIPs en `data_raw/transborder_national/` (~3 GB) + 178 dot3 CSVs 
 ### Cargar facts
 
 ```bash
-python etl/05_load_fact_transborder.py    # nacional + SANDAG adapter
-python etl/06_load_fact_border_crossing.py
-python etl/07_load_fact_wait_time.py
+python scripts/05_load_fact_transborder.py    # nacional + SANDAG adapter
+python scripts/06_load_fact_border_crossing.py
+python scripts/07_load_fact_wait_time.py
 ```
+
+### Pre-bake JSONs para frontend
+
+```bash
+PREBAKE_OUT_DIR=./out/prebake python scripts/08_prebake_frontend.py
+```
+
+Genera 18 JSONs estáticos consumidos por el dashboard. Default: `./out/prebake/` relativo al repo. Override via env var `PREBAKE_OUT_DIR`.
 
 ### Verificación
 
