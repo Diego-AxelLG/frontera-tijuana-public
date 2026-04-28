@@ -102,15 +102,9 @@ erDiagram
     }
 ```
 
-> **Nota sobre `data_source`**: el ETL `scripts/05_load_fact_transborder.py` escribe esta columna en `fact_transborder` (ver ADR-002), y el frontend depende de filtrarla. **No está en el DDL versionado de `facts.sql`** — habría que agregarla manualmente al ejecutar el schema:
->
-> ```sql
-> ALTER TABLE frontera.fact_transborder
->   ADD COLUMN data_source VARCHAR(20) NOT NULL DEFAULT 'bts_national'
->   CHECK (data_source IN ('bts_national', 'sandag_mirror'));
-> ```
->
-> Filtrar análisis nacionales con `WHERE data_source = 'bts_national'`; análisis del corredor sin filtro (incluye `sandag_mirror`).
+> **Nota sobre `data_source`**: esta columna distingue las dos fuentes que coexisten en `fact_transborder` (ver ADR-002). Las queries del prebake la usan como filtro principal:
+> - Análisis nacional / denominadores: `WHERE data_source = 'bts_national'`
+> - Análisis del corredor (más reciente): incluye también `'sandag_mirror'`
 
 ---
 

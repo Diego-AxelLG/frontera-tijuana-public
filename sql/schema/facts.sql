@@ -53,6 +53,10 @@ CREATE TABLE fact_transborder (
     value_usd            BIGINT        NOT NULL CHECK (value_usd >= 0),
     weight_kg            BIGINT                CHECK (weight_kg IS NULL OR weight_kg >= 0),
     freight_charge_usd   BIGINT                CHECK (freight_charge_usd IS NULL OR freight_charge_usd >= 0),
+    -- Fuente del registro: bts_national (BTS oficial vía Wayback) o sandag_mirror
+    -- (mirror SANDAG, cobertura más reciente del corredor). Ver ADR-002.
+    data_source          VARCHAR(20)   NOT NULL DEFAULT 'bts_national'
+                                         CHECK (data_source IN ('bts_national', 'sandag_mirror')),
     loaded_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
 
     PRIMARY KEY (port_id, mode_id, commodity_id, date_id,
